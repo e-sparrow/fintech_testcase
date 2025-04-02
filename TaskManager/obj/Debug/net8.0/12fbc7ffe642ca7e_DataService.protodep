@@ -1,0 +1,3 @@
+obj\Debug\net8.0/DataService.cs \
+obj\Debug\net8.0/DataServiceGrpc.cs: C:/Users/eSparrow/.nuget/packages/grpc.tools/2.71.0/build/native/include/google/protobuf/empty.proto\
+ Protos/DataService.proto

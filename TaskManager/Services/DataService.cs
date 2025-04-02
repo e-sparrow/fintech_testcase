@@ -1,138 +1,154 @@
-using System.Collections.Concurrent;
+﻿using Google.Protobuf.WellKnownTypes;
+using Grpc.Net.Client;
 using TaskManager.Models;
+using TaskManagerProvider.Contracts;
+using TaskItem = TaskManager.Models.TaskItem;
+using User = TaskManager.Models.User;
+using TaskManagerProviderClient = TaskManagerProvider.Contracts.TaskManagerProvider.TaskManagerProviderClient;
+using TaskState = TaskManager.Models.TaskState;
 
 namespace TaskManager.Services;
 
-public class DataService : IDataService
+public class DataService 
+    : IDataService
 {
-    private readonly ConcurrentDictionary<int, User> _users;
-    private readonly ConcurrentDictionary<int, TaskItem> _tasks;
-    private int _lastUserId = 0;
-    private int _lastTaskId = 0;
-
-    public DataService()
+    private const string Address = "http://localhost:50051";
+    
+    public async Task<List<User>> GetUsersAsync()
     {
-        _users = new ConcurrentDictionary<int, User>();
-        _tasks = new ConcurrentDictionary<int, TaskItem>();
-
-        // Add some mock data
-        var user1 = new User { Id = ++_lastUserId, Name = "John Doe" };
-        var user2 = new User { Id = ++_lastUserId, Name = "Jane Smith" };
-
-        _users.TryAdd(user1.Id, user1);
-        _users.TryAdd(user2.Id, user2);
-
-        var task1 = new TaskItem { Id = ++_lastTaskId, Name = "Complete project", UserId = user1.Id, State = TaskState.New };
-        var task2 = new TaskItem { Id = ++_lastTaskId, Name = "Review code", UserId = user1.Id, State = TaskState.InProgress };
-        var task3 = new TaskItem { Id = ++_lastTaskId, Name = "Write documentation", UserId = user2.Id, State = TaskState.New };
-
-        _tasks.TryAdd(task1.Id, task1);
-        _tasks.TryAdd(task2.Id, task2);
-        _tasks.TryAdd(task3.Id, task3);
+        using var channel = CreateChannel();
+        var client = new TaskManagerProviderClient(channel);
+        var reply = await client.GetUsersAsync(new Empty());
+        return reply.Users.Select(value => value.ToModel()).ToList();
     }
 
-    public Task<List<User>> GetUsersAsync()
+    public async Task<User> GetUserByIdAsync(int id)
     {
-        return Task.FromResult(_users.Values.ToList());
-    }
-
-    public Task<User?> GetUserByIdAsync(int id)
-    {
-        _users.TryGetValue(id, out var user);
-        return Task.FromResult(user);
-    }
-
-    public Task<User> CreateUserAsync(User user)
-    {
-        user.Id = Interlocked.Increment(ref _lastUserId);
-        if (_users.TryAdd(user.Id, user))
+        using var channel = CreateChannel();
+        var client = new TaskManagerProviderClient(channel);
+        
+        var request = new GetUserByIdRequest()
         {
-            return Task.FromResult(user);
-        }
-        throw new InvalidOperationException("Failed to create user");
+            Id = id
+        };
+        
+        var reply = await client.GetUserByIdAsync(request);
+        return reply.User.ToModel();
     }
 
-    public Task<User?> UpdateUserAsync(User user)
+    public async Task<User> CreateUserAsync(User user)
     {
-        if (_users.ContainsKey(user.Id))
-        {
-            _users[user.Id] = user;
-            return Task.FromResult<User?>(user);
-        }
-        return Task.FromResult<User?>(null);
+        using var channel = CreateChannel();
+        var client = new TaskManagerProviderClient(channel);
+        
+        var reply = await client.CreateUserAsync(user.FromModel());
+        return reply.ToModel();
     }
 
-    public Task<List<TaskItem>> GetTasksAsync()
+    public async Task<User> UpdateUserAsync(User user)
     {
-        var tasks = _tasks.Values.ToList();
-        foreach (var task in tasks)
-        {
-            _users.TryGetValue(task.UserId, out var user);
-            task.User = user;
-        }
-        return Task.FromResult(tasks);
+        using var channel = CreateChannel();
+        var client = new TaskManagerProviderClient(channel);
+        
+        var reply = await client.UpdateUserAsync(user.FromModel());
+        return reply.User.ToModel();
     }
 
-    public Task<List<TaskItem>> GetUserTasksAsync(int userId)
+    public async Task<bool> RemoveUserAsync(int id)
     {
-        // Verify user exists first
-        if (!_users.ContainsKey(userId))
+        using var channel = CreateChannel();
+        var client = new TaskManagerProviderClient(channel);
+
+        var fakeUser = new User()
         {
-            return Task.FromResult(new List<TaskItem>());
-        }
-
-        var user = _users[userId];
-        // First filter the tasks by userId, then materialize to list
-        var filteredTasks = _tasks.Values
-            .Where(t => t.UserId == userId)
-            .ToList();
-
-        // Ensure all tasks have their User property set
-        foreach (var task in filteredTasks)
-        {
-            task.User = user;
-        }
-
-        return Task.FromResult(filteredTasks);
+            Id = id,
+            Name = string.Empty
+        };
+        
+        var reply = await client.RemoveUserAsync(fakeUser.FromModel());
+        return reply.IsSuccess;
     }
 
-    public Task<TaskItem?> GetTaskByIdAsync(int id)
+    public async Task<List<TaskItem>> GetTasksAsync()
     {
-        if (_tasks.TryGetValue(id, out var task))
-        {
-            _users.TryGetValue(task.UserId, out var user);
-            task.User = user;
-            return Task.FromResult<TaskItem?>(task);
-        }
-        return Task.FromResult<TaskItem?>(null);
+        using var channel = CreateChannel();
+        var client = new TaskManagerProviderClient(channel);
+        
+        var reply = await client.GetTasksAsync(new Empty());
+        return reply.Tasks.Select(value => value.ToModel()).ToList();
     }
 
-    public Task<TaskItem> CreateTaskAsync(TaskItem task)
+    public async Task<List<TaskItem>> GetUserTasksAsync(int id)
     {
-        task.Id = Interlocked.Increment(ref _lastTaskId);
-        if (_tasks.TryAdd(task.Id, task))
+        using var channel = CreateChannel();
+        var client = new TaskManagerProviderClient(channel);
+        
+        var request = new GetUserTasksRequest()
         {
-            _users.TryGetValue(task.UserId, out var user);
-            task.User = user;
-            return Task.FromResult(task);
-        }
-        throw new InvalidOperationException("Failed to create task");
+            Id = id
+        };
+        
+        var reply = await client.GetUserTasksAsync(request);
+        return reply.Tasks.Select(value => value.ToModel()).ToList();
     }
 
-    public Task<TaskItem?> UpdateTaskAsync(TaskItem task)
+    public async Task<TaskItem?> GetTaskByIdAsync(int id)
     {
-        if (_tasks.ContainsKey(task.Id))
+        using var channel = CreateChannel();
+        var client = new TaskManagerProviderClient(channel);
+        
+        var request = new GetTaskByIdRequest()
         {
-            // Ensure we have a valid user
-            if (_users.TryGetValue(task.UserId, out var user))
+            Id = id
+        };
+        
+        var reply = await client.GetTaskByIdAsync(request);
+        return reply.Task.ToModel();
+    }
+
+    public async Task<TaskItem> CreateTaskAsync(TaskItem task)
+    {
+        using var channel = CreateChannel();
+        var client = new TaskManagerProviderClient(channel);
+        
+        var reply = await client.CreateTaskAsync(task.FromModel());
+        return reply.ToModel();
+    }
+
+    public async Task<TaskItem?> UpdateTaskAsync(TaskItem task)
+    {
+        using var channel = CreateChannel();
+        var client = new TaskManagerProviderClient(channel);
+        
+        var reply = await client.UpdateTaskAsync(task.FromModel());
+        return reply.Task.ToModel();
+    }
+
+    public async Task<bool> RemoveTaskAsync(int id)
+    {
+        using var channel = CreateChannel();
+        var client = new TaskManagerProviderClient(channel);
+
+        var fakeTask = new TaskItem()
+        {
+            Id = id,
+            Name = string.Empty,
+            UserId = -1,
+            State = TaskState.Close,
+            User = new User()
             {
-                task.User = user;
-                _tasks[task.Id] = task;
-                return Task.FromResult<TaskItem?>(task);
+                Id = -1,
+                Name = string.Empty
             }
-            // If user doesn't exist, don't update
-            return Task.FromResult<TaskItem?>(null);
-        }
-        return Task.FromResult<TaskItem?>(null);
+        };
+        
+        var reply = await client.RemoveTaskAsync(fakeTask.FromModel());
+        return reply.IsSuccess;
+    }
+
+    private static GrpcChannel CreateChannel()
+    {
+        var result = GrpcChannel.ForAddress(Address);
+        return result;
     }
 }
