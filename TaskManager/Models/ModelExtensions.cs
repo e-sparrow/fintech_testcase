@@ -41,7 +41,7 @@ public static class ModelExtensions
             Name = self.Name,
             UserId = self.UserId,
             State = self.State.FromModel(),
-            User = self.User.FromModel()
+            User = self.User?.FromModel()
         };
 
         return result;
