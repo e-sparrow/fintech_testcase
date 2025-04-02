@@ -1,0 +1,26 @@
+﻿@page "{id:int}"
+@model TaskManager.Pages.Users.RemoveModel
+@{
+    ViewData["Title"] = "Remove User";
+}
+
+<h1>Remove User</h1>
+
+<div class="row">
+    <div class="col-md-4">
+        <form method="post">
+            <input type="hidden" asp-for="UserModel.Id" />
+            <text>Are you sure you want to remove user "@Model.UserModel.Name"?</text>
+            <div class="form-group">
+                <button type="submit" class="btn btn-primary">Confirm</button>
+                <a asp-page="Index" class="btn btn-secondary">Back to List</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+    @{
+        await Html.RenderPartialAsync("_ValidationScriptsPartial");
+    }
+}
