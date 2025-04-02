@@ -1,0 +1,89 @@
+﻿syntax = "proto3";
+
+option csharp_namespace = "TaskManagerProvider.Contracts";
+
+import "google/protobuf/empty.proto";
+
+package TaskManagerProvider;
+
+service TaskManagerProvider {
+  rpc GetUsers (google.protobuf.Empty) returns (GetUsersResponse);
+  rpc GetUserById (GetUserByIdRequest) returns (GetUserByIdResponse);
+  rpc CreateUser (User) returns (User);
+  rpc UpdateUser (User) returns (UpdateUserResponse);
+  rpc RemoveUser (User) returns (RemoveUserResponse); 
+  
+  rpc GetTasks (google.protobuf.Empty) returns (GetTasksResponse);
+  rpc GetUserTasks (GetUserTasksRequest) returns (GetUserTasksResponse);
+  rpc GetTaskById (GetTaskByIdRequest) returns (GetTaskByIdResponse);
+  rpc CreateTask (TaskItem) returns (TaskItem);
+  rpc UpdateTask (TaskItem) returns (UpdateTaskResponse);
+  rpc RemoveTask (TaskItem) returns (RemoveTaskResponse);
+}
+
+message User {
+  int32 id = 1;
+  string name = 2;
+}
+
+message GetUsersResponse {
+  repeated User users = 1;
+}
+
+message GetUserByIdRequest {
+  int32 id = 1;
+}
+
+message GetUserByIdResponse {
+  optional User user = 1;
+}
+
+message UpdateUserResponse {
+  optional User user = 1;
+}
+
+message GetTasksResponse {
+  repeated TaskItem tasks = 1;
+}
+
+message GetUserTasksRequest {
+  int32 id = 1;
+}
+
+message GetUserTasksResponse {
+  repeated TaskItem tasks = 1;
+}
+
+message RemoveUserResponse {
+  bool isSuccess = 1;
+}
+
+message GetTaskByIdRequest {
+  int32 id = 1;
+}
+
+message GetTaskByIdResponse {
+  optional TaskItem task = 1;
+}
+
+message UpdateTaskResponse {
+  optional TaskItem task = 1;
+}
+
+message RemoveTaskResponse {
+  bool isSuccess = 1;
+}
+
+message TaskItem {
+  int32 id = 1;
+  string name = 2;
+  int32 userId = 3;
+  TaskState state = 4;
+  User user = 5;
+}
+
+enum TaskState {
+  New = 0;
+  InProgress = 1;
+  Close = 2;
+}
